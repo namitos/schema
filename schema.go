@@ -40,7 +40,11 @@ type WidgetSettings struct {
 	Vocabulary string            `json:"vocabulary,omitempty"`
 }
 
-func GetSchema(v reflect.Value, label, vocabulary string) *Schema {
+func GetSchema(v reflect.Value) *Schema {
+	return getSchema(v, "", "")
+}
+
+func getSchema(v reflect.Value, label, vocabulary string) *Schema {
 	if v.IsValid() {
 		typeOfS := v.Type()
 		kind := v.Kind()
@@ -56,13 +60,13 @@ func GetSchema(v reflect.Value, label, vocabulary string) *Schema {
 			}
 		} else if kind == reflect.Map {
 		} else if kind == reflect.Ptr {
-			return GetSchema(v.Elem(), label, vocabulary)
+			return getSchema(v.Elem(), label, vocabulary)
 		} else if kind == reflect.Array || kind == reflect.Slice {
 			if v.Len() > 0 {
 				schema := &Schema{
 					Type:  "array",
 					Label: label,
-					Items: GetSchema(v.Index(0), "", ""),
+					Items: getSchema(v.Index(0), "", ""),
 				}
 				return schema
 			}
@@ -82,7 +86,7 @@ func GetSchema(v reflect.Value, label, vocabulary string) *Schema {
 				}
 				label := f.Tag.Get("label")
 				vocabulary := f.Tag.Get("vocabulary")
-				schema.Properties[fieldName] = GetSchema(v.Field(i), label, vocabulary)
+				schema.Properties[fieldName] = getSchema(v.Field(i), label, vocabulary)
 			}
 			return schema
 		}
