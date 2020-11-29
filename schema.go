@@ -1,26 +1,10 @@
 package schema
 
 import (
+	"log"
 	"reflect"
 	"strings"
 )
-
-//example:
-//type TestType struct {
-//	Location *types.Location
-//	Images   []*types.File
-//}
-//
-//func TestGetSchema(t *testing.T) {
-//	s := TestType{
-//		Location: &types.Location{},
-//		Images:   []*types.File{{}},
-//	}
-//
-//	schemaItem := GetSchema(reflect.ValueOf(s), "", "")
-//	schemaItemBytes, _ := json.Marshal(schemaItem)
-//	fmt.Println(string(schemaItemBytes))
-//}
 
 type Schema struct {
 	Type           string             `json:"type,omitempty"`
@@ -40,7 +24,7 @@ type WidgetSettings struct {
 	Vocabulary string            `json:"vocabulary,omitempty"`
 }
 
-func GetSchema(v reflect.Value) *Schema {
+func Get(v reflect.Value) *Schema {
 	return getSchema(v, "", "")
 }
 
@@ -48,6 +32,7 @@ func getSchema(v reflect.Value, label, vocabulary string) *Schema {
 	if v.IsValid() {
 		typeOfS := v.Type()
 		kind := v.Kind()
+		log.Println(typeOfS.Kind(), kind)
 
 		if kind == reflect.Int64 || kind == reflect.Float64 || kind == reflect.String || kind == reflect.Bool {
 			typeName := typeOfS.String()
@@ -59,6 +44,12 @@ func getSchema(v reflect.Value, label, vocabulary string) *Schema {
 				},
 			}
 		} else if kind == reflect.Map {
+			keys := v.MapKeys()
+			return &Schema{
+				Type:  "map",
+				Label: label,
+				Items: getSchema(v.MapIndex(keys[0]), "", ""),
+			}
 		} else if kind == reflect.Ptr {
 			return getSchema(v.Elem(), label, vocabulary)
 		} else if kind == reflect.Array || kind == reflect.Slice {
