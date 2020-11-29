@@ -1,7 +1,6 @@
 package schema
 
 import (
-	"log"
 	"reflect"
 	"strings"
 )
@@ -32,7 +31,6 @@ func getSchema(v reflect.Value, label, vocabulary string) *Schema {
 	if v.IsValid() {
 		typeOfS := v.Type()
 		kind := v.Kind()
-		log.Println(typeOfS.Kind(), kind)
 
 		if kind == reflect.Int64 || kind == reflect.Float64 || kind == reflect.String || kind == reflect.Bool {
 			typeName := typeOfS.String()
