@@ -10,7 +10,7 @@ import (
 //example:
 type TestType struct {
 	Location   [2]float64         `label:"Location label" json:"location"`
-	ExampleMap map[string]float64 `label:"exampleMap label" json:"exampleMap"`
+	ExampleMap map[string]float64 `label:"exampleMap label" json:"exampleMap" widget:"custom-map-input"`
 }
 
 func TestGet(t *testing.T) {

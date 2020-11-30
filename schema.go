@@ -24,47 +24,55 @@ type WidgetSettings struct {
 }
 
 func Get(v reflect.Value) *Schema {
-	return getSchema(v, "", "")
+	return getSchema(v, map[string]string{})
 }
 
-func getSchema(v reflect.Value, label, vocabulary string) *Schema {
+func getSchema(v reflect.Value, tags map[string]string) *Schema {
 	if v.IsValid() {
 		typeOfS := v.Type()
 		kind := v.Kind()
 
+		widgetSettings := &WidgetSettings{
+			Name:       tags["widget"],
+			Vocabulary: tags["vocabulary"],
+		}
+
 		if kind == reflect.Int64 || kind == reflect.Float64 || kind == reflect.String || kind == reflect.Bool {
 			typeName := typeOfS.String()
 			return &Schema{
-				Type:  typeName,
-				Label: label,
-				WidgetSettings: &WidgetSettings{
-					Vocabulary: vocabulary,
-				},
+				Type:           typeName,
+				Label:          tags["label"],
+				WidgetSettings: widgetSettings,
 			}
 		} else if kind == reflect.Map {
 			keys := v.MapKeys()
-			return &Schema{
-				Type:  "map",
-				Label: label,
-				Items: getSchema(v.MapIndex(keys[0]), "", ""),
+			if len(keys) > 0 {
+				return &Schema{
+					Type:           "map",
+					Label:          tags["label"],
+					WidgetSettings: widgetSettings,
+					Items:          getSchema(v.MapIndex(keys[0]), map[string]string{}),
+				}
 			}
 		} else if kind == reflect.Ptr {
-			return getSchema(v.Elem(), label, vocabulary)
+			return getSchema(v.Elem(), tags)
 		} else if kind == reflect.Array || kind == reflect.Slice {
 			if v.Len() > 0 {
 				schema := &Schema{
-					Type:  "array",
-					Label: label,
-					Items: getSchema(v.Index(0), "", ""),
+					Type:           "array",
+					Label:          tags["label"],
+					WidgetSettings: widgetSettings,
+					Items:          getSchema(v.Index(0), map[string]string{}),
 				}
 				return schema
 			}
 		} else if kind == reflect.Struct {
 			fieldsCount := v.NumField()
 			schema := &Schema{
-				Type:       "object",
-				Label:      label,
-				Properties: map[string]*Schema{},
+				Type:           "object",
+				Label:          tags["label"],
+				WidgetSettings: widgetSettings,
+				Properties:     map[string]*Schema{},
 			}
 			for i := 0; i < fieldsCount; i++ {
 				f := typeOfS.Field(i)
@@ -75,7 +83,12 @@ func getSchema(v reflect.Value, label, vocabulary string) *Schema {
 				}
 				label := f.Tag.Get("label")
 				vocabulary := f.Tag.Get("vocabulary")
-				schema.Properties[fieldName] = getSchema(v.Field(i), label, vocabulary)
+				widget := f.Tag.Get("widget")
+				schema.Properties[fieldName] = getSchema(v.Field(i), map[string]string{
+					"label":      label,
+					"vocabulary": vocabulary,
+					"widget":     widget,
+				})
 			}
 			return schema
 		}
