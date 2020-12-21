@@ -9,7 +9,7 @@ import (
 
 //example:
 type TestType struct {
-	Location   [2]float64         `label:"Location label" json:"location"`
+	Location   [2]float64         `label:"Location label" json:"location" weight:"123" validate:"required"`
 	ExampleMap map[string]float64 `label:"exampleMap label" json:"exampleMap" widget:"custom-map-input"`
 }
 
