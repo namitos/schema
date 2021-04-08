@@ -19,10 +19,10 @@ type Schema struct {
 type WidgetSettings struct {
 	Name       string            `json:"name,omitempty"`
 	Options    map[string]string `json:"options,omitempty"`
-	URLPrefix  string            `json:"URLPrefix,omitempty"`
 	Storage    string            `json:"storage,omitempty"`
-	Images     bool              `json:"images,omitempty"`
+	URLPrefix  string            `json:"URLPrefix,omitempty"`
 	Vocabulary string            `json:"vocabulary,omitempty"`
+	Images     bool              `json:"images,omitempty"`
 }
 
 func Get(v reflect.Value) *Schema {
@@ -48,9 +48,30 @@ func getSchema(v reflect.Value, tags map[string]string) *Schema {
 			}
 		}
 
+		widgetSettingsSplitted := strings.Split(tags["widget"], ",")
+		widgetSettingsFromStrFlags := map[string]bool{}
+		widgetSettingsFromStrKV := map[string]string{}
+		for _, setting := range widgetSettingsSplitted { //for now only flags
+			settingKV := strings.Split(setting, "=")
+			if len(settingKV) == 1 { //flag
+				widgetSettingsFromStrFlags[settingKV[0]] = true
+			}
+			if len(settingKV) == 2 { //key-value
+				widgetSettingsFromStrKV[settingKV[0]] = settingKV[1]
+			}
+		}
 		widgetSettings := &WidgetSettings{
-			Name:       tags["widget"],
+			Name:       widgetSettingsSplitted[0],
 			Vocabulary: tags["vocabulary"],
+		}
+		if widgetSettingsFromStrFlags["images"] {
+			widgetSettings.Images = true
+		}
+		if widgetSettingsFromStrKV["URLPrefix"] != "" {
+			widgetSettings.URLPrefix = widgetSettingsFromStrKV["URLPrefix"]
+		}
+		if widgetSettingsFromStrKV["vocabulary"] != "" {
+			widgetSettings.Vocabulary = widgetSettingsFromStrKV["vocabulary"]
 		}
 
 		if kind == reflect.Int64 || kind == reflect.Float64 || kind == reflect.String || kind == reflect.Bool {
