@@ -23,6 +23,7 @@ type WidgetSettings struct {
 	URLPrefix  string            `json:"URLPrefix,omitempty"`
 	Vocabulary string            `json:"vocabulary,omitempty"`
 	Images     bool              `json:"images,omitempty"`
+	Cols       int64             `json:"cols,omitempty"`
 }
 
 func Get(v reflect.Value) *Schema {
@@ -72,6 +73,12 @@ func getSchema(v reflect.Value, tags map[string]string) *Schema {
 		}
 		if widgetSettingsFromStrKV["vocabulary"] != "" {
 			widgetSettings.Vocabulary = widgetSettingsFromStrKV["vocabulary"]
+		}
+		if widgetSettingsFromStrKV["cols"] != "" {
+			cols, err := strconv.ParseInt(widgetSettingsFromStrKV["cols"], 10, 64)
+			if err == nil {
+				widgetSettings.Cols = cols
+			}
 		}
 
 		if kind == reflect.Int64 || kind == reflect.Float64 || kind == reflect.String || kind == reflect.Bool {
