@@ -2,25 +2,9 @@ package schema
 
 import (
 	"reflect"
+	"strconv"
 	"strings"
 )
-
-//example:
-//type TestType struct {
-//	Location *types.Location
-//	Images   []*types.File
-//}
-//
-//func TestGetSchema(t *testing.T) {
-//	s := TestType{
-//		Location: &types.Location{},
-//		Images:   []*types.File{{}},
-//	}
-//
-//	schemaItem := GetSchema(reflect.ValueOf(s), "", "")
-//	schemaItemBytes, _ := json.Marshal(schemaItem)
-//	fmt.Println(string(schemaItemBytes))
-//}
 
 type Schema struct {
 	Type           string             `json:"type,omitempty"`
@@ -28,54 +12,119 @@ type Schema struct {
 	Properties     map[string]*Schema `json:"properties,omitempty"`
 	Items          *Schema            `json:"items,omitempty"`
 	Required       bool               `json:"required,omitempty"`
-	WidgetSettings *WidgetSettings    `json:"widgetSettings,omitempty"`
+	Weight         int64              `json:"weight,omitempty"`
+	WidgetSettings *WidgetSettings    `json:"widgetSettings,omitempty"` //for Object.assign to component
 }
 
 type WidgetSettings struct {
 	Name       string            `json:"name,omitempty"`
 	Options    map[string]string `json:"options,omitempty"`
-	URLPrefix  string            `json:"URLPrefix,omitempty"`
 	Storage    string            `json:"storage,omitempty"`
-	Images     bool              `json:"images,omitempty"`
+	URLPrefix  string            `json:"URLPrefix,omitempty"`
 	Vocabulary string            `json:"vocabulary,omitempty"`
+	Images     bool              `json:"images,omitempty"`
+	Cols       int64             `json:"cols,omitempty"`
 }
 
-func GetSchema(v reflect.Value) *Schema {
-	return getSchema(v, "", "")
+func Get(v reflect.Value) *Schema {
+	return getSchema(v, map[string]string{})
 }
 
-func getSchema(v reflect.Value, label, vocabulary string) *Schema {
+func getSchema(v reflect.Value, tags map[string]string) *Schema {
 	if v.IsValid() {
 		typeOfS := v.Type()
 		kind := v.Kind()
 
+		var weight int64
+		if tags["weight"] != "" {
+			weight, _ = strconv.ParseInt(tags["weight"], 10, 64)
+		}
+		var required bool
+		if tags["validate"] != "" {
+			validations := strings.Split(tags["validate"], ",")
+			for _, str := range validations {
+				if str == "required" {
+					required = true
+				}
+			}
+		}
+
+		widgetSettingsSplitted := strings.Split(tags["widget"], ",")
+		widgetSettingsFromStrFlags := map[string]bool{}
+		widgetSettingsFromStrKV := map[string]string{}
+		for _, setting := range widgetSettingsSplitted { //for now only flags
+			settingKV := strings.Split(setting, "=")
+			if len(settingKV) == 1 { //flag
+				widgetSettingsFromStrFlags[settingKV[0]] = true
+			}
+			if len(settingKV) == 2 { //key-value
+				widgetSettingsFromStrKV[settingKV[0]] = settingKV[1]
+			}
+		}
+		widgetSettings := &WidgetSettings{
+			Name:       widgetSettingsSplitted[0],
+			Vocabulary: tags["vocabulary"],
+		}
+		if widgetSettingsFromStrFlags["images"] {
+			widgetSettings.Images = true
+		}
+		if widgetSettingsFromStrKV["URLPrefix"] != "" {
+			widgetSettings.URLPrefix = widgetSettingsFromStrKV["URLPrefix"]
+		}
+		if widgetSettingsFromStrKV["vocabulary"] != "" {
+			widgetSettings.Vocabulary = widgetSettingsFromStrKV["vocabulary"]
+		}
+		if widgetSettingsFromStrKV["cols"] != "" {
+			cols, err := strconv.ParseInt(widgetSettingsFromStrKV["cols"], 10, 64)
+			if err == nil {
+				widgetSettings.Cols = cols
+			}
+		}
+
 		if kind == reflect.Int64 || kind == reflect.Float64 || kind == reflect.String || kind == reflect.Bool {
 			typeName := typeOfS.String()
 			return &Schema{
-				Type:  typeName,
-				Label: label,
-				WidgetSettings: &WidgetSettings{
-					Vocabulary: vocabulary,
-				},
+				Type:           typeName,
+				Label:          tags["label"],
+				Required:       required,
+				Weight:         weight,
+				WidgetSettings: widgetSettings,
 			}
 		} else if kind == reflect.Map {
+			keys := v.MapKeys()
+			if len(keys) > 0 {
+				return &Schema{
+					Type:           "map",
+					Label:          tags["label"],
+					Required:       required,
+					Weight:         weight,
+					WidgetSettings: widgetSettings,
+					Items:          getSchema(v.MapIndex(keys[0]), map[string]string{}),
+				}
+			}
 		} else if kind == reflect.Ptr {
-			return getSchema(v.Elem(), label, vocabulary)
+			return getSchema(v.Elem(), tags)
 		} else if kind == reflect.Array || kind == reflect.Slice {
 			if v.Len() > 0 {
 				schema := &Schema{
-					Type:  "array",
-					Label: label,
-					Items: getSchema(v.Index(0), "", ""),
+					Type:           "array",
+					Label:          tags["label"],
+					Required:       required,
+					Weight:         weight,
+					WidgetSettings: widgetSettings,
+					Items:          getSchema(v.Index(0), map[string]string{}),
 				}
 				return schema
 			}
 		} else if kind == reflect.Struct {
 			fieldsCount := v.NumField()
 			schema := &Schema{
-				Type:       "object",
-				Label:      label,
-				Properties: map[string]*Schema{},
+				Type:           "object",
+				Label:          tags["label"],
+				Required:       required,
+				Weight:         weight,
+				WidgetSettings: widgetSettings,
+				Properties:     map[string]*Schema{},
 			}
 			for i := 0; i < fieldsCount; i++ {
 				f := typeOfS.Field(i)
@@ -86,7 +135,16 @@ func getSchema(v reflect.Value, label, vocabulary string) *Schema {
 				}
 				label := f.Tag.Get("label")
 				vocabulary := f.Tag.Get("vocabulary")
-				schema.Properties[fieldName] = getSchema(v.Field(i), label, vocabulary)
+				widget := f.Tag.Get("widget")
+				weight := f.Tag.Get("weight")
+				validate := f.Tag.Get("validate")
+				schema.Properties[fieldName] = getSchema(v.Field(i), map[string]string{
+					"label":      label,
+					"vocabulary": vocabulary,
+					"widget":     widget,
+					"weight":     weight,
+					"validate":   validate,
+				})
 			}
 			return schema
 		}
