@@ -23,6 +23,7 @@ type WidgetSettings struct {
 	URLPrefix  string            `json:"URLPrefix,omitempty"`
 	Vocabulary string            `json:"vocabulary,omitempty"`
 	Images     bool              `json:"images,omitempty"`
+	Sortable   bool              `json:"sortable,omitempty"`
 	Cols       int64             `json:"cols,omitempty"`
 }
 
@@ -67,6 +68,9 @@ func getSchema(v reflect.Value, tags map[string]string) *Schema {
 		}
 		if widgetSettingsFromStrFlags["images"] {
 			widgetSettings.Images = true
+		}
+		if widgetSettingsFromStrFlags["sortable"] {
+			widgetSettings.Sortable = true
 		}
 		if widgetSettingsFromStrKV["URLPrefix"] != "" {
 			widgetSettings.URLPrefix = widgetSettingsFromStrKV["URLPrefix"]
